@@ -300,6 +300,33 @@ def list_notes():
     return notes
 
 
+# ---- 回顾(resurface 与 web 共用,规则只在此处定义)----
+
+def review_key(meta):
+    """最近看过时间:上次回顾缺失时用保存时间顶替,都没有则垫底。"""
+    return meta.get("上次回顾") or meta.get("保存时间") or ""
+
+
+def pick_review_note(notes):
+    """选「最近看过时间」最早的一条(合并排序,不分组)。"""
+    return min(notes, key=lambda n: review_key(n["meta"]))
+
+
+def record_review(path, answer, now=None):
+    """把一次回顾记回笔记:更新「上次回顾」、正文末尾追加记录行。
+
+    用 build_note 整体重建写回,用户对正文的手动编辑全保留。返回更新后
+    的 {"meta", "body"}。
+    """
+    parsed = read_note(path)
+    meta, body = parsed["meta"], parsed["body"]
+    now = now or now_str()
+    meta["上次回顾"] = now
+    body = body.rstrip() + "\n- [%s] %s" % (now, answer)
+    write_text_file(path, build_note(meta, body))
+    return {"meta": meta, "body": body}
+
+
 # ---- 路径 ----
 
 def unique_path(directory, stem, suffix):
