@@ -32,6 +32,7 @@ Esc:表单开着先收表单,再按收面板。浏览、搜索、回顾在网页
 
 import argparse
 import ctypes
+import os
 import queue
 import socket
 import subprocess
@@ -40,6 +41,7 @@ import threading
 import time
 import tkinter as tk
 import tkinter.font as tkfont
+import traceback
 import webbrowser
 
 import common
@@ -91,6 +93,22 @@ def set_dpi_aware():
             pass  # 老系统没有也无妨,只是可能缩放错位
 
 
+def declare_gdi_types():
+    """64 位下不声明 argtypes/restype 会把句柄当 32 位 int 截断
+    (高位丢光),DeleteObject 可能删错对象甚至崩溃;声明一次保平安。"""
+    user32 = ctypes.windll.user32
+    gdi32 = ctypes.windll.gdi32
+    user32.GetParent.argtypes = [ctypes.c_void_p]
+    user32.GetParent.restype = ctypes.c_void_p
+    user32.SetWindowRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+                                    ctypes.c_int]
+    user32.SetWindowRgn.restype = ctypes.c_int
+    gdi32.CreateRoundRectRgn.argtypes = [ctypes.c_int] * 6
+    gdi32.CreateRoundRectRgn.restype = ctypes.c_void_p
+    gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+    gdi32.DeleteObject.restype = ctypes.c_int
+
+
 def round_rect(canvas, x1, y1, x2, y2, r, **kw):
     """tkinter 没有圆角矩形,用 smooth 多边形模拟。"""
     pts = (x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r, x2, y2,
@@ -133,6 +151,9 @@ class EdgeApp:
         self.panel_h = COMPACT_H
         self.region = None       # 圆角区域句柄(SetWindowRgn,重设后删旧)
         self.queue = queue.Queue()
+        self.quitting = False    # 退出中:停止轮询续排,避免销毁竞态
+        self.poll_job = None
+        self.queue_job = None
 
         self.root = tk.Tk()
         self.root.withdraw()       # 无任务栏图标
@@ -158,8 +179,8 @@ class EdgeApp:
         self._build_window()
         self._build_panel()
         self._apply_x(self._strip_x())
-        self.root.after(POLL_MS, self._poll)
-        self.root.after(150, self._poll_queue)
+        self.poll_job = self.root.after(POLL_MS, self._poll)
+        self.queue_job = self.root.after(150, self._poll_queue)
 
     # ---------- 窗口与几何 ----------
 
@@ -168,6 +189,7 @@ class EdgeApp:
         self.win.overrideredirect(True)
         self.win.attributes("-topmost", True)
         self.win.configure(bg=CREAM)
+        self.win.protocol("WM_DELETE_WINDOW", self._quit)   # Alt+F4 也走整退
         self.win.bind("<Escape>", self._on_escape)
         self.win.bind("<Button-1>", lambda e: self.win.focus_force(), add="+")
 
@@ -178,8 +200,9 @@ class EdgeApp:
         return self.screen_w - PANEL_W if self.edge == "right" else 0
 
     def _apply_x(self, x):
+        # 注意:这里绝不碰 SetWindowRgn——移动过程中反复设区域会让
+        # geometry() 失效(实机教训)。区域只在尺寸变化时单独设一次。
         self.win.geometry("%dx%d+%d+%d" % (PANEL_W, self.panel_h, x, self.y0))
-        self._apply_region()   # 尺寸变了,圆角区域要重设
 
     def _animate_to(self, target):
         if self.anim_job:
@@ -187,11 +210,16 @@ class EdgeApp:
         x0 = self.win.winfo_x()
 
         def step(i):
-            if i >= ANIM_STEPS:
-                self.anim_job = None
-                self._apply_x(target)
-                return
-            self._apply_x(x0 + (target - x0) * i // ANIM_STEPS)
+            try:
+                if i >= ANIM_STEPS:
+                    self.anim_job = None
+                    self._apply_x(target)
+                    return
+                self._apply_x(x0 + (target - x0) * i // ANIM_STEPS)
+            except Exception:
+                self._log_error()
+                if i >= ANIM_STEPS:
+                    return   # 最后一步失败不再续排,交给轮询自愈
             self.anim_job = self.root.after(ANIM_MS, step, i + 1)
         step(0)
 
@@ -224,7 +252,15 @@ class EdgeApp:
     def _schedule_collapse(self):
         if self.collapse_job:
             return
-        self.collapse_job = self.root.after(COLLAPSE_MS, self._collapse)
+        self.collapse_job = self.root.after(COLLAPSE_MS,
+                                            lambda: self._catch(self._collapse))
+
+    def _catch(self, fn):
+        """after 作业统一包一层,单个作业挂了不影响后续。"""
+        try:
+            fn()
+        except Exception:
+            self._log_error()
 
     def _cancel_collapse(self):
         if self.collapse_job:
@@ -240,23 +276,43 @@ class EdgeApp:
         return (x - MARGIN <= px <= x + PANEL_W + MARGIN and
                 y - MARGIN <= py <= y + self.panel_h + MARGIN)
 
+    def _log_error(self):
+        """回调异常不掐断主循环:stderr + 项目里 edge_errors.log 各留一份。"""
+        traceback.print_exc(file=sys.stderr)
+        try:
+            with open(os.path.join(common.BASE_DIR, "edge_errors.log"), "a",
+                      encoding="utf-8") as f:
+                f.write("%s\n%s\n" % (common.now_str(),
+                                      traceback.format_exc()))
+        except OSError:
+            pass
+
     def _poll(self):
-        if self.region is None:   # 启动时 wrapper 还没建好,窗口映射后补设圆角
-            self._apply_x(self.win.winfo_x())
-        if self.state != "locked":
-            px, py = self.win.winfo_pointerxy()
-            if self.state == "collapsed":
-                hit = self._strip_hit(px, py)
-                if not hit:
-                    self.armed = True
-                elif self.armed:
-                    self._expand()
-            else:  # expanded
-                if self._panel_hit(px, py):
-                    self._cancel_collapse()
-                else:
-                    self._schedule_collapse()
-        self.root.after(POLL_MS, self._poll)
+        try:
+            if self.region is None:   # 启动时 wrapper 还没建好,窗口映射后补设圆角
+                self._apply_x(self.win.winfo_x())
+                self._apply_region()
+            if self.state != "locked":
+                px, py = self.win.winfo_pointerxy()
+                if self.state == "collapsed":
+                    hit = self._strip_hit(px, py)
+                    if not hit:
+                        self.armed = True
+                    elif self.armed:
+                        self._expand()
+                else:  # expanded
+                    if self._panel_hit(px, py):
+                        self._cancel_collapse()
+                    else:
+                        self._schedule_collapse()
+            # 自愈:动画已停但窗口还停在细条位置 → 状态纠正回收起
+            if (self.state == "expanded" and self.anim_job is None
+                    and abs(self.win.winfo_x() - self._strip_x()) <= 1):
+                self.state = "collapsed"
+        except Exception:
+            self._log_error()
+        if not self.quitting:
+            self.poll_job = self.root.after(POLL_MS, self._poll)
 
     # ---------- 面板构建 ----------
 
@@ -459,6 +515,7 @@ class EdgeApp:
         self.form.pack(fill="x")
         self.panel_h = FULL_H
         self._apply_x(self.win.winfo_x())
+        self._apply_region()   # 尺寸变了,圆角区域重设一次
         self.text_area.focus_set()   # 打开即想输入,顺便清掉占位提示
 
     def _close_form(self):
@@ -469,6 +526,7 @@ class EdgeApp:
         self.add_canvas.pack(fill="x")
         self.panel_h = COMPACT_H
         self._apply_x(self.win.winfo_x())
+        self._apply_region()   # 尺寸变了,圆角区域重设一次
 
     def _on_escape(self, e):
         if self.form_open:
@@ -555,7 +613,10 @@ class EdgeApp:
                     self.status.configure(text=rest[0])
         except queue.Empty:
             pass
-        self.root.after(150, self._poll_queue)
+        except Exception:
+            self._log_error()
+        if not self.quitting:
+            self.queue_job = self.root.after(150, self._poll_queue)
 
     def _finish_save(self, text, reason, result):
         """写笔记:标题取首行,摘要/标签来自模型,格式与 ingest.py 一致。"""
@@ -624,7 +685,8 @@ class EdgeApp:
 
         winfo_id() 给的是客户区 HWND(TkChild),真正的外层窗口是其父
         (TkTopLevel)——区域必须设在外层,否则裁不动。SetWindowRgn 成功后
-        旧区域句柄归系统接管,需手动 DeleteObject 释放。
+        区域归系统所有(换区/窗口销毁时系统自会释放),绝不能 DeleteObject:
+        双重释放会搞坏 GDI 句柄表,窗口连移动都会失效(实机教训)。
         """
         hwnd = ctypes.windll.user32.GetParent(self.win.winfo_id())
         if not hwnd:
@@ -633,11 +695,18 @@ class EdgeApp:
         hrgn = ctypes.windll.gdi32.CreateRoundRectRgn(
             0, 0, PANEL_W + 1, self.panel_h + 1, r, r)
         ctypes.windll.user32.SetWindowRgn(hwnd, hrgn, True)
-        if self.region:
-            ctypes.windll.gdi32.DeleteObject(self.region)
-        self.region = hrgn
+        if hrgn:
+            self.region = hrgn   # 只作「已设置」标记,句柄归系统不再碰
 
     def _quit(self):
+        self.quitting = True
+        for job in (self.poll_job, self.queue_job, self.collapse_job,
+                    self.anim_job):
+            if job:
+                try:
+                    self.root.after_cancel(job)
+                except Exception:
+                    pass
         self.root.destroy()
 
     def run(self):
@@ -646,6 +715,7 @@ class EdgeApp:
 
 def main():
     set_dpi_aware()
+    declare_gdi_types()
     parser = argparse.ArgumentParser(description="拾遗桌面悬浮窗(随手存入)")
     parser.add_argument("--edge", choices=("right", "left"), default="right")
     args = parser.parse_args()

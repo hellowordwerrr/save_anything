@@ -8,5 +8,10 @@ __pycache__/
 inbox/
 archive/
 
+# 悬浮窗运行时日志(崩溃日志 edge_errors.log 值得留,但由用户决定)
+edge_run.log
+edge_errors.log
+edge_trace.log
+
 # notes/ 故意不忽略:笔记是产出物,建议纳入版本管理
 # 若不想同步笔记,可自行把 notes/ 加入此文件
