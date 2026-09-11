@@ -300,6 +300,28 @@ def list_notes():
     return notes
 
 
+# ---- 检索(search/web/edge 共用,规则只在此处定义)----
+
+SEARCH_FIELDS = ("标题", "摘要", "标签", "理由")
+
+
+def search_notes(notes, keywords):
+    """检索过滤:只搜头部四字段,大小写不敏感,多词 AND。
+
+    返回按「保存时间」倒序(缺失垫底)的新列表,不改原列表。
+    """
+    if not keywords:
+        result = list(notes)
+    else:
+        kws = [str(k).lower() for k in keywords]
+        result = [n for n in notes
+                  if all(k in " ".join(str(n["meta"].get(f, ""))
+                                       for f in SEARCH_FIELDS).lower()
+                         for k in kws)]
+    result.sort(key=lambda n: n["meta"].get("保存时间", ""), reverse=True)
+    return result
+
+
 # ---- 回顾(resurface 与 web 共用,规则只在此处定义)----
 
 def review_key(meta):

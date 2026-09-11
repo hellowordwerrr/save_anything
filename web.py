@@ -22,7 +22,6 @@ import common
 
 BASE = Path(__file__).resolve().parent
 INDEX_FILE = BASE / "web" / "index.html"
-SEARCH_FIELDS = ("标题", "摘要", "标签", "理由")
 
 PAGE = None  # 启动时读入内存
 
@@ -62,16 +61,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(PAGE, "text/html; charset=utf-8")
             elif path == "/api/notes":
                 q = " ".join(qs.get("q", [""])).strip()
-                keywords = [k.lower() for k in q.split()] if q else []
-                out = []
-                for n in common.list_notes():
-                    if keywords:
-                        hit = " ".join(
-                            str(n["meta"].get(f, "")) for f in SEARCH_FIELDS).lower()
-                        if not all(k in hit for k in keywords):
-                            continue
-                    out.append(self._note_dict(n["path"], n))
-                out.sort(key=lambda x: x["meta"].get("保存时间", ""), reverse=True)
+                keywords = q.split() if q else []
+                out = [self._note_dict(n["path"], n)
+                       for n in common.search_notes(common.list_notes(), keywords)]
                 self._send_json({"notes": out})
             elif path == "/api/note":
                 p = self._note_path(qs.get("path", [""])[0])

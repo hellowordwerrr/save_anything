@@ -17,19 +17,11 @@ def main():
         print("用法: python search.py 关键词 [关键词...]")
         sys.exit(1)
 
-    keywords = [k.lower() for k in sys.argv[1:]]
-    matches = []
-    for n in common.list_notes():
-        meta = n["meta"]
-        hit = " ".join(str(meta.get(f, "")) for f in ("标题", "摘要", "标签", "理由")).lower()
-        if all(k in hit for k in keywords):
-            matches.append(n)
+    matches = common.search_notes(common.list_notes(), sys.argv[1:])
 
     if not matches:
         print("没找到")
         return
-
-    matches.sort(key=lambda n: n["meta"].get("保存时间", ""), reverse=True)
     for i, n in enumerate(matches):
         if i:
             print()
