@@ -6,186 +6,231 @@
 <title>拾遗</title>
 <style>
   :root {
-    --paper: #f7f2e8;
-    --card: #fffdf8;
-    --ink: #2b2620;
-    --ink-soft: #6b6255;
-    --accent: #a03e2d;
-    --line: #ddd3bf;
+    --cream: #F6F1E7;    /* 暖调奶油米色底 */
+    --mustard: #F0C94F;  /* 芥末黄 */
+    --green: #C9E86C;    /* 荧光浅绿 */
+    --pink: #F3C7C1;     /* 柔和粉 */
+    --peach: #F7D9B3;    /* 裸蜜桃 */
+    --panel: #FBF7EE;    /* 浮层纸面 */
+    --ink: #000000;      /* 所有文字纯黑 */
+    --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
+    --sans: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
-    background: var(--paper);
-    color: var(--ink);
-    min-height: 100vh;
-  }
-  header {
-    text-align: center;
-    padding: 52px 16px 26px;
-    border-bottom: 1px solid var(--line);
-  }
-  h1 { font-size: 46px; letter-spacing: .32em; font-weight: 600; margin-left: .32em; }
-  .subtitle { margin-top: 12px; color: var(--ink-soft); font-size: 13px; letter-spacing: .14em; }
-  .search { max-width: 560px; margin: 26px auto 0; display: flex; }
+  body { background: var(--cream); color: var(--ink); min-height: 100vh; }
+  button { font-family: var(--sans); color: var(--ink); }
+
+  /* ---- 报头:大衬线标题 + 超大衬线数字 ---- */
+  header { padding: 56px 40px 0; max-width: 1400px; margin: 0 auto; }
+  .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(64px, 11vw, 128px); line-height: 1; letter-spacing: .08em; }
+  .tagline { font: 13px var(--sans); letter-spacing: .3em; margin-top: 18px; opacity: .55; }
+  .count { display: flex; align-items: flex-end; gap: 8px; padding-bottom: 8px; }
+  .count .num { font-family: var(--serif); font-weight: 700; font-size: clamp(72px, 9vw, 108px); line-height: .9; }
+  .count .unit { font: 13px var(--sans); letter-spacing: .2em; opacity: .55; padding-bottom: 6px; }
+
+  /* ---- 搜索:圆角胶囊 + 芥末黄按钮 ---- */
+  .search { display: flex; gap: 10px; max-width: 680px; margin: 42px 0 0; }
   .search input {
-    flex: 1; padding: 10px 16px; font-size: 15px; font-family: inherit;
-    border: 1px solid var(--line); border-right: none; background: var(--card);
-    outline: none; color: var(--ink); border-radius: 3px 0 0 3px;
+    flex: 1; border: 1.5px solid var(--ink); border-radius: 999px;
+    background: var(--panel); padding: 14px 24px;
+    font: 15px var(--sans); color: var(--ink); outline: none;
   }
-  .search input:focus { border-color: var(--accent); }
+  .search input::placeholder { color: rgba(0, 0, 0, .35); }
   .search button {
-    padding: 10px 20px; border: 1px solid var(--line); background: var(--card);
-    cursor: pointer; font-family: inherit; font-size: 14px; color: var(--ink-soft);
-    border-radius: 0 3px 3px 0;
+    border: none; border-radius: 999px; background: var(--mustard);
+    padding: 14px 36px; font-size: 15px; font-weight: 600; cursor: pointer;
   }
-  .search button:hover { color: var(--accent); border-color: var(--accent); }
-  main { display: flex; gap: 28px; max-width: 1080px; margin: 34px auto; padding: 0 24px; }
-  #list { flex: 0 0 330px; }
-  #detail { flex: 1; min-width: 0; }
-  .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 4px;
-    padding: 13px 16px; margin-bottom: 12px; cursor: pointer;
-    transition: border-color .15s;
+  .search button:hover { filter: brightness(.96); }
+
+  /* ---- 笔记方块:大色块拼接,扁平无阴影 ---- */
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+    gap: 18px; padding: 44px 40px 140px; max-width: 1400px; margin: 0 auto;
   }
-  .card:hover { border-color: var(--accent); }
-  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .card .summary { font-size: 15px; line-height: 1.6; }
-  .card .meta { margin-top: 7px; font-size: 12px; color: var(--ink-soft); }
-  .card .meta .tag { display: inline-block; margin-right: 6px; padding: 1px 8px;
-    border: 1px solid var(--line); border-radius: 10px; }
-  .note-head h2 { font-size: 22px; margin-bottom: 12px; }
-  .kv { margin: 7px 0; font-size: 14px; color: var(--ink-soft); }
-  .kv b { color: var(--ink); font-weight: 600; margin-right: 10px; }
-  .body {
-    margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
-    white-space: pre-wrap; line-height: 1.9; font-size: 15px;
+  .block {
+    border-radius: 22px; padding: 24px 24px 20px; cursor: pointer;
+    min-height: 190px; display: flex; flex-direction: column;
+    justify-content: space-between; transition: transform .12s ease;
   }
-  .empty { color: var(--ink-soft); text-align: center; padding: 64px 0; font-size: 14px; }
-  #reviewBtn {
-    position: fixed; right: 30px; bottom: 30px; padding: 12px 24px;
-    border-radius: 26px; background: var(--accent); color: #fdf8ef;
-    border: none; cursor: pointer; font-family: inherit; font-size: 15px;
-    box-shadow: 0 3px 12px rgba(160, 62, 45, .35); letter-spacing: .1em;
+  .block:hover { transform: translateY(-4px); }
+  .b0 { background: var(--mustard); }
+  .b1 { background: var(--green); }
+  .b2 { background: var(--pink); }
+  .b3 { background: var(--peach); }
+  .block .t { font: 12px var(--sans); letter-spacing: .06em; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .block .s { font-family: var(--serif); font-size: 23px; font-weight: 600; line-height: 1.55; margin-top: 12px; }
+  .block .m { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--ink); border-radius: 999px; padding: 2px 10px; font: 11px var(--sans); }
+  .block .d { font: 11px var(--sans); opacity: .55; margin-top: 12px; letter-spacing: .02em; }
+
+  /* ---- 浮层:杂志跨页式的留白面板 ---- */
+  .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 10; display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 4vh 20px 6vh; }
+  .sheet {
+    background: var(--panel); border-radius: 28px; padding: 44px 48px 40px;
+    max-width: 700px; width: 100%; margin-top: 2vh;
   }
-  #reviewBtn:hover { opacity: .9; }
-  .mask { position: fixed; inset: 0; background: rgba(43, 38, 32, .45); z-index: 10; }
-  .modal {
-    max-width: 660px; margin: 7vh auto 0; background: var(--paper);
-    border-radius: 6px; padding: 26px 30px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
-  }
-  .modal h2 { font-size: 20px; margin-bottom: 14px; font-weight: 600; }
   .close {
     float: right; border: none; background: none; cursor: pointer;
-    font-size: 17px; color: var(--ink-soft);
+    font: 22px var(--sans); line-height: 1; opacity: .5;
   }
-  .review-note .body { margin-top: 10px; padding-top: 12px; max-height: 40vh; overflow: auto; }
-  .review-note textarea {
-    width: 100%; height: 74px; margin-top: 16px; padding: 10px;
-    font-family: inherit; font-size: 14px; line-height: 1.7;
-    border: 1px solid var(--line); background: var(--card); resize: vertical; outline: none;
+  .close:hover { opacity: 1; }
+  .sheet h2 { font-family: var(--serif); font-size: clamp(26px, 4vw, 34px); font-weight: 700; margin-bottom: 22px; padding-right: 40px; }
+  .kv { margin: 8px 0; font: 13px var(--sans); }
+  .kv b { font-weight: 700; letter-spacing: .1em; margin-right: 14px; }
+  .kv span { opacity: .75; }
+  .body {
+    margin-top: 22px; padding-top: 22px; border-top: 1.5px solid var(--ink);
+    white-space: pre-wrap; font-family: var(--serif); font-size: 15.5px;
+    line-height: 1.95; max-height: 46vh; overflow: auto;
   }
-  .review-note textarea:focus { border-color: var(--accent); }
-  .actions { margin-top: 14px; display: flex; gap: 10px; justify-content: flex-end; }
-  .btn {
-    padding: 8px 20px; border: 1px solid var(--line); background: var(--card);
-    cursor: pointer; font-family: inherit; font-size: 14px; border-radius: 3px; color: var(--ink);
+
+  /* ---- 回顾浮层里的色块 + 表单 ---- */
+  .review-block { border-radius: 20px; padding: 26px 26px 22px; margin-bottom: 24px; }
+  .review-block .s { font-family: var(--serif); font-size: 24px; font-weight: 600; line-height: 1.55; }
+  .review-block .m { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .review-block .body { margin-top: 16px; padding-top: 16px; max-height: 24vh; }
+  .sheet textarea {
+    width: 100%; height: 86px; border: 1.5px solid var(--ink); border-radius: 16px;
+    background: #FFFFFF; padding: 14px 18px; font: 14px var(--sans);
+    line-height: 1.7; color: var(--ink); resize: vertical; outline: none;
   }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.primary { background: var(--accent); color: #fdf8ef; border-color: var(--accent); }
-  .btn.primary:hover { color: #fff; opacity: .92; }
-  @media (max-width: 760px) { main { flex-direction: column; } #list { flex: none; } }
+  .sheet textarea::placeholder { color: rgba(0, 0, 0, .35); }
+  .actions { margin-top: 18px; display: flex; gap: 12px; justify-content: flex-end; }
+  .btn { border-radius: 999px; padding: 12px 30px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--ink); background: transparent; }
+  .btn:hover { background: rgba(0, 0, 0, .05); }
+  .btn.primary { background: var(--mustard); border: none; }
+  .btn.primary:hover { filter: brightness(.96); }
+
+  /* ---- 回顾入口:荧光浅绿大按钮 ---- */
+  #reviewBtn {
+    position: fixed; right: 28px; bottom: 28px; border: none; border-radius: 999px;
+    background: var(--green); padding: 17px 34px; font-size: 16px; font-weight: 700;
+    letter-spacing: .15em; cursor: pointer;
+  }
+  #reviewBtn:hover { filter: brightness(.95); }
+
+  .empty { grid-column: 1 / -1; text-align: center; padding: 90px 0; font: 14px var(--sans); letter-spacing: .2em; opacity: .5; }
+  footer { text-align: center; padding: 0 0 48px; font: 11px var(--sans); letter-spacing: .25em; opacity: .4; }
 </style>
 </head>
 <body>
 <header>
-  <h1>拾遗</h1>
-  <div class="subtitle">已存之物 · 时而拾起 · 才知还值不值得留</div>
+  <div class="top">
+    <div>
+      <h1>拾遗</h1>
+      <div class="tagline">已存之物 · 时而拾起</div>
+    </div>
+    <div class="count">
+      <span class="num" id="total">–</span>
+      <span class="unit">条</span>
+    </div>
+  </div>
   <div class="search">
     <input id="q" placeholder="搜摘要 / 标签 / 理由……" autofocus>
     <button id="searchBtn">搜</button>
   </div>
 </header>
-<main>
-  <section id="list"></section>
-  <section id="detail">
-    <div class="empty" id="detailEmpty">点左边一条笔记,或点右下角「回顾」拾起最久没看的那条</div>
-    <article id="note" style="display:none" class="note-head"></article>
-  </section>
-</main>
+
+<main class="grid" id="grid"></main>
+<footer>拾遗 · 本地笔记</footer>
+
 <button id="reviewBtn">回顾</button>
 
-<div id="reviewModal" style="display:none" class="mask">
-  <div class="modal">
-    <button class="close" onclick="closeReview()">✕</button>
-    <h2>回顾</h2>
-    <div class="review-note" id="reviewNote"></div>
+<!-- 单条详情浮层 -->
+<div id="noteModal" class="mask" style="display:none" onclick="if(event.target===this)hide(this)">
+  <div class="sheet">
+    <button class="close" onclick="hide($('noteModal'))">✕</button>
+    <h2 id="noteTitle"></h2>
+    <div id="noteMeta"></div>
+    <div class="body" id="noteBody"></div>
+  </div>
+</div>
+
+<!-- 回顾浮层 -->
+<div id="reviewModal" class="mask" style="display:none" onclick="if(event.target===this)hide(this)">
+  <div class="sheet">
+    <button class="close" onclick="hide($('reviewModal'))">✕</button>
+    <div style="font:12px var(--sans); letter-spacing:.3em; opacity:.5; margin-bottom:20px;">回顾</div>
+    <div class="review-block" id="reviewNote"></div>
     <textarea id="reviewAnswer" placeholder="现在还有用吗?写一句,留空=无回应"></textarea>
     <div class="actions">
-      <button class="btn" onclick="closeReview()">先不看了</button>
+      <button class="btn" onclick="hide($('reviewModal'))">先不看了</button>
       <button class="btn primary" onclick="submitReview()">记下,看下一条</button>
     </div>
   </div>
 </div>
 
 <script>
-let currentPath = null;
+let reviewPath = null;
 const $ = id => document.getElementById(id);
+const PALETTE = ['b0', 'b1', 'b2', 'b3'];
+const paletteOf = s => PALETTE[[...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
 
 function esc(s) {
   return String(s === undefined || s === null ? '' : s)
     .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-function kv(field, v) { return '<div class="kv"><b>' + field + '</b>' + esc(v || '(无)') + '</div>'; }
-function bodyHtml(text) { return '<div class="body">' + esc(text) + '</div>'; }
+function hide(el) { el.style.display = 'none'; }
+function show(el) { el.style.display = 'flex'; }
+function tags(text) {
+  return String(text || '').split(/[,、;，\s]+/).filter(Boolean).map(t => '<span class="chip">' + esc(t) + '</span>').join('');
+}
+function kv(field, v) { return '<div class="kv"><b>' + field + '</b><span>' + esc(v || '(无)') + '</span></div>'; }
 
-async function loadNotes(q, autoOpen) {
-  if (autoOpen === undefined) autoOpen = true;
+async function loadNotes(q) {
   const res = await fetch('/api/notes' + (q ? '?q=' + encodeURIComponent(q) : ''));
   const data = await res.json();
-  const list = $('list');
-  if (!data.notes.length) { list.innerHTML = '<div class="empty">没找到</div>'; return; }
-  list.innerHTML = data.notes.map(n => {
+  if (!q) $('total').textContent = data.notes.length;
+  const grid = $('grid');
+  if (!data.notes.length) {
+    grid.innerHTML = '<div class="empty">' + (q ? '没找到' : '还没有笔记,把想存的丢进 inbox 跑一下 ingest 吧') + '</div>';
+    return;
+  }
+  grid.innerHTML = data.notes.map(n => {
     const m = n.meta || {};
-    return '<div class="card" data-path="' + esc(n.path) + '" onclick="openNote(this.dataset.path)">' +
-      '<div class="summary">' + esc(m['摘要'] || '(无摘要)') + '</div>' +
-      '<div class="meta">' + esc(m['保存时间'] || '') +
-      (m['上次回顾'] ? ' · 上次回顾 ' + esc(m['上次回顾']) : ' · 从未回顾') + '</div>' +
+    const last = m['上次回顾'] ? '上次回顾 ' + m['上次回顾'] : '从未回顾';
+    return '<div class="block ' + paletteOf(n.path) + '" data-path="' + esc(n.path) + '" onclick="openNote(this.dataset.path)">' +
+      '<div class="t">' + esc(m['标题'] || n.path) + '</div>' +
+      '<div class="s">' + esc(m['摘要'] || '(无摘要)') + '</div>' +
+      '<div><div class="m">' + tags(m['标签']) + '</div>' +
+      '<div class="d">' + esc(m['保存时间'] || '') + ' · ' + esc(last) + '</div></div>' +
       '</div>';
   }).join('');
-  if (autoOpen) openNote(list.querySelector('.card').dataset.path);
 }
 
 async function openNote(path) {
   const res = await fetch('/api/note?path=' + encodeURIComponent(path));
   if (res.status !== 200) return;
   const n = await res.json();
-  currentPath = path;
-  document.querySelectorAll('#list .card').forEach(c =>
-    c.classList.toggle('selected', c.dataset.path === path));
-  $('detailEmpty').style.display = 'none';
-  const note = $('note');
-  note.style.display = 'block';
   const m = n.meta || {};
-  note.innerHTML =
-    '<h2>' + esc(m['标题'] || path) + '</h2>' +
+  $('noteTitle').textContent = m['标题'] || path;
+  $('noteMeta').innerHTML =
     kv('摘要', m['摘要']) + kv('标签', m['标签']) + kv('理由', m['理由']) +
-    kv('保存时间', m['保存时间']) + kv('上次回顾', m['上次回顾']) +
-    bodyHtml(n.body);
+    kv('保存时间', m['保存时间']) + kv('上次回顾', m['上次回顾'] || '从未');
+  $('noteBody').textContent = n.body || '';
+  show($('noteModal'));
 }
 
 async function loadReview() {
   const res = await fetch('/api/review');
   const data = await res.json();
   const box = $('reviewNote');
-  if (!data.note) { box.innerHTML = '<div class="empty">没有笔记</div>'; return; }
+  if (!data.note) {
+    box.className = '';
+    box.innerHTML = '<div style="text-align:center; padding:44px 0; font:14px var(--sans); letter-spacing:.2em; opacity:.5;">没有笔记</div>';
+    return;
+  }
   const n = data.note;
-  currentPath = n.path;
+  reviewPath = n.path;
   const m = n.meta || {};
+  box.className = 'review-block ' + paletteOf(n.path);
   box.innerHTML =
-    kv('摘要', m['摘要']) + kv('标签', m['标签']) + kv('理由', m['理由']) +
-    kv('保存时间', m['保存时间']) + kv('上次回顾', m['上次回顾'] || '从未') +
-    bodyHtml(n.body);
+    '<div class="s">' + esc(m['摘要'] || '(无摘要)') + '</div>' +
+    '<div class="m">' + tags(m['标签']) + '</div>' +
+    '<div class="d" style="font:11px var(--sans); opacity:.55; margin-top:12px;">' +
+    esc(m['保存时间'] || '') + ' · 上次回顾 ' + esc(m['上次回顾'] || '从未') + '</div>' +
+    '<div class="body">' + esc(n.body || '') + '</div>';
 }
 
 async function submitReview() {
@@ -193,23 +238,22 @@ async function submitReview() {
   const res = await fetch('/api/review', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({path: currentPath, answer: answer}),
+    body: JSON.stringify({path: reviewPath, answer: answer}),
   });
   if (res.status !== 200) { alert('记回失败'); return; }
   $('reviewAnswer').value = '';
   await loadReview();                    // 立刻换下一条
-  loadNotes($('q').value.trim(), false); // 列表刷新,但不抢当前选中
+  loadNotes($('q').value.trim());        // 方块列表同步刷新
 }
 
-function openReview() { $('reviewModal').style.display = 'block'; loadReview(); }
-function closeReview() { $('reviewModal').style.display = 'none'; }
+function openReview() { $('reviewAnswer').value = ''; show($('reviewModal')); loadReview(); }
 
 $('searchBtn').onclick = () => loadNotes($('q').value.trim());
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadNotes($('q').value.trim()); });
 $('q').addEventListener('input', e => { if (!e.target.value.trim()) loadNotes(''); });
 $('reviewBtn').onclick = openReview;
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeReview();
+  if (e.key === 'Escape') { hide($('noteModal')); hide($('reviewModal')); }
   if (e.key === 'Enter' && e.ctrlKey && $('reviewModal').style.display !== 'none') submitReview();
 });
 loadNotes('');
