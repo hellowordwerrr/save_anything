@@ -130,3 +130,7 @@ save_anything/
 - 以 Git Bash / Windows Terminal 为准;cmd + chcp 936 下提示文字可能乱码
 - 输入文件自动识别 UTF-8(含 BOM)与 GBK
 - 不要用管道把 GBK 编码的文本喂给脚本;交互输入中文请直接在终端打字
+
+## License
+
+[MIT](LICENSE)
