@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拾遗</title>
+<style>
+  :root {
+    --paper: #f7f2e8;
+    --card: #fffdf8;
+    --ink: #2b2620;
+    --ink-soft: #6b6255;
+    --accent: #a03e2d;
+    --line: #ddd3bf;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    text-align: center;
+    padding: 52px 16px 26px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 46px; letter-spacing: .32em; font-weight: 600; margin-left: .32em; }
+  .subtitle { margin-top: 12px; color: var(--ink-soft); font-size: 13px; letter-spacing: .14em; }
+  .search { max-width: 560px; margin: 26px auto 0; display: flex; }
+  .search input {
+    flex: 1; padding: 10px 16px; font-size: 15px; font-family: inherit;
+    border: 1px solid var(--line); border-right: none; background: var(--card);
+    outline: none; color: var(--ink); border-radius: 3px 0 0 3px;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .search button {
+    padding: 10px 20px; border: 1px solid var(--line); background: var(--card);
+    cursor: pointer; font-family: inherit; font-size: 14px; color: var(--ink-soft);
+    border-radius: 0 3px 3px 0;
+  }
+  .search button:hover { color: var(--accent); border-color: var(--accent); }
+  main { display: flex; gap: 28px; max-width: 1080px; margin: 34px auto; padding: 0 24px; }
+  #list { flex: 0 0 330px; }
+  #detail { flex: 1; min-width: 0; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+    padding: 13px 16px; margin-bottom: 12px; cursor: pointer;
+    transition: border-color .15s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card .summary { font-size: 15px; line-height: 1.6; }
+  .card .meta { margin-top: 7px; font-size: 12px; color: var(--ink-soft); }
+  .card .meta .tag { display: inline-block; margin-right: 6px; padding: 1px 8px;
+    border: 1px solid var(--line); border-radius: 10px; }
+  .note-head h2 { font-size: 22px; margin-bottom: 12px; }
+  .kv { margin: 7px 0; font-size: 14px; color: var(--ink-soft); }
+  .kv b { color: var(--ink); font-weight: 600; margin-right: 10px; }
+  .body {
+    margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+    white-space: pre-wrap; line-height: 1.9; font-size: 15px;
+  }
+  .empty { color: var(--ink-soft); text-align: center; padding: 64px 0; font-size: 14px; }
+  #reviewBtn {
+    position: fixed; right: 30px; bottom: 30px; padding: 12px 24px;
+    border-radius: 26px; background: var(--accent); color: #fdf8ef;
+    border: none; cursor: pointer; font-family: inherit; font-size: 15px;
+    box-shadow: 0 3px 12px rgba(160, 62, 45, .35); letter-spacing: .1em;
+  }
+  #reviewBtn:hover { opacity: .9; }
+  .mask { position: fixed; inset: 0; background: rgba(43, 38, 32, .45); z-index: 10; }
+  .modal {
+    max-width: 660px; margin: 7vh auto 0; background: var(--paper);
+    border-radius: 6px; padding: 26px 30px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  }
+  .modal h2 { font-size: 20px; margin-bottom: 14px; font-weight: 600; }
+  .close {
+    float: right; border: none; background: none; cursor: pointer;
+    font-size: 17px; color: var(--ink-soft);
+  }
+  .review-note .body { margin-top: 10px; padding-top: 12px; max-height: 40vh; overflow: auto; }
+  .review-note textarea {
+    width: 100%; height: 74px; margin-top: 16px; padding: 10px;
+    font-family: inherit; font-size: 14px; line-height: 1.7;
+    border: 1px solid var(--line); background: var(--card); resize: vertical; outline: none;
+  }
+  .review-note textarea:focus { border-color: var(--accent); }
+  .actions { margin-top: 14px; display: flex; gap: 10px; justify-content: flex-end; }
+  .btn {
+    padding: 8px 20px; border: 1px solid var(--line); background: var(--card);
+    cursor: pointer; font-family: inherit; font-size: 14px; border-radius: 3px; color: var(--ink);
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #fdf8ef; border-color: var(--accent); }
+  .btn.primary:hover { color: #fff; opacity: .92; }
+  @media (max-width: 760px) { main { flex-direction: column; } #list { flex: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>拾遗</h1>
+  <div class="subtitle">已存之物 · 时而拾起 · 才知还值不值得留</div>
+  <div class="search">
+    <input id="q" placeholder="搜摘要 / 标签 / 理由……" autofocus>
+    <button id="searchBtn">搜</button>
+  </div>
+</header>
+<main>
+  <section id="list"></section>
+  <section id="detail">
+    <div class="empty" id="detailEmpty">点左边一条笔记,或点右下角「回顾」拾起最久没看的那条</div>
+    <article id="note" style="display:none" class="note-head"></article>
+  </section>
+</main>
+<button id="reviewBtn">回顾</button>
+
+<div id="reviewModal" style="display:none" class="mask">
+  <div class="modal">
+    <button class="close" onclick="closeReview()">✕</button>
+    <h2>回顾</h2>
+    <div class="review-note" id="reviewNote"></div>
+    <textarea id="reviewAnswer" placeholder="现在还有用吗?写一句,留空=无回应"></textarea>
+    <div class="actions">
+      <button class="btn" onclick="closeReview()">先不看了</button>
+      <button class="btn primary" onclick="submitReview()">记下,看下一条</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentPath = null;
+const $ = id => document.getElementById(id);
+
+function esc(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function kv(field, v) { return '<div class="kv"><b>' + field + '</b>' + esc(v || '(无)') + '</div>'; }
+function bodyHtml(text) { return '<div class="body">' + esc(text) + '</div>'; }
+
+async function loadNotes(q, autoOpen) {
+  if (autoOpen === undefined) autoOpen = true;
+  const res = await fetch('/api/notes' + (q ? '?q=' + encodeURIComponent(q) : ''));
+  const data = await res.json();
+  const list = $('list');
+  if (!data.notes.length) { list.innerHTML = '<div class="empty">没找到</div>'; return; }
+  list.innerHTML = data.notes.map(n => {
+    const m = n.meta || {};
+    return '<div class="card" data-path="' + esc(n.path) + '" onclick="openNote(this.dataset.path)">' +
+      '<div class="summary">' + esc(m['摘要'] || '(无摘要)') + '</div>' +
+      '<div class="meta">' + esc(m['保存时间'] || '') +
+      (m['上次回顾'] ? ' · 上次回顾 ' + esc(m['上次回顾']) : ' · 从未回顾') + '</div>' +
+      '</div>';
+  }).join('');
+  if (autoOpen) openNote(list.querySelector('.card').dataset.path);
+}
+
+async function openNote(path) {
+  const res = await fetch('/api/note?path=' + encodeURIComponent(path));
+  if (res.status !== 200) return;
+  const n = await res.json();
+  currentPath = path;
+  document.querySelectorAll('#list .card').forEach(c =>
+    c.classList.toggle('selected', c.dataset.path === path));
+  $('detailEmpty').style.display = 'none';
+  const note = $('note');
+  note.style.display = 'block';
+  const m = n.meta || {};
+  note.innerHTML =
+    '<h2>' + esc(m['标题'] || path) + '</h2>' +
+    kv('摘要', m['摘要']) + kv('标签', m['标签']) + kv('理由', m['理由']) +
+    kv('保存时间', m['保存时间']) + kv('上次回顾', m['上次回顾']) +
+    bodyHtml(n.body);
+}
+
+async function loadReview() {
+  const res = await fetch('/api/review');
+  const data = await res.json();
+  const box = $('reviewNote');
+  if (!data.note) { box.innerHTML = '<div class="empty">没有笔记</div>'; return; }
+  const n = data.note;
+  currentPath = n.path;
+  const m = n.meta || {};
+  box.innerHTML =
+    kv('摘要', m['摘要']) + kv('标签', m['标签']) + kv('理由', m['理由']) +
+    kv('保存时间', m['保存时间']) + kv('上次回顾', m['上次回顾'] || '从未') +
+    bodyHtml(n.body);
+}
+
+async function submitReview() {
+  const answer = $('reviewAnswer').value.trim();
+  const res = await fetch('/api/review', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({path: currentPath, answer: answer}),
+  });
+  if (res.status !== 200) { alert('记回失败'); return; }
+  $('reviewAnswer').value = '';
+  await loadReview();                    // 立刻换下一条
+  loadNotes($('q').value.trim(), false); // 列表刷新,但不抢当前选中
+}
+
+function openReview() { $('reviewModal').style.display = 'block'; loadReview(); }
+function closeReview() { $('reviewModal').style.display = 'none'; }
+
+$('searchBtn').onclick = () => loadNotes($('q').value.trim());
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadNotes($('q').value.trim()); });
+$('q').addEventListener('input', e => { if (!e.target.value.trim()) loadNotes(''); });
+$('reviewBtn').onclick = openReview;
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeReview();
+  if (e.key === 'Enter' && e.ctrlKey && $('reviewModal').style.display !== 'none') submitReview();
+});
+loadNotes('');
+</script>
+</body>
+</html>
