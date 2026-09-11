@@ -154,6 +154,12 @@ class EdgeApp:
         self.quitting = False    # 退出中:停止轮询续排,避免销毁竞态
         self.poll_job = None
         self.queue_job = None
+        # 按钮文案(底部状态小字已删,反馈借按钮短暂闪现)
+        self.add_btn_text = "+ 存一条"
+        self.web_btn_text = "打开网页版"
+        self.add_flash_job = None
+        self.web_flash_job = None
+        self.save_flash_job = None
 
         self.root = tk.Tk()
         self.root.withdraw()       # 无任务栏图标
@@ -391,12 +397,6 @@ class EdgeApp:
                                   padx=20)
         self.save_btn.pack(side="right", ipady=5)
 
-        # 状态行(与上方按钮、面板底边都留出距离)
-        self.status = tk.Label(self.panel, bg=CREAM, fg=INK, anchor="w",
-                               justify="left", wraplength=PANEL_W - 32,
-                               font=(self.sans, 8))
-        self.status.pack(fill="x", padx=16, pady=(24, 14))
-
     def _draw_add_btn(self):
         """两个圆角块:「+ 存一条」(展开表单)/「打开网页版」(拉起网页)。"""
         c = self.add_canvas
@@ -405,13 +405,50 @@ class EdgeApp:
         if w < 20:
             return
         round_rect(c, 0, 0, w, 50, 16, fill=MUSTARD, outline="", tags="b1")
-        c.create_text(w / 2, 25, text="+ 存一条", fill=INK,
+        c.create_text(w / 2, 25, text=self.add_btn_text, fill=INK,
                       font=(self.serif, 13, "bold"), tags="b1")
         round_rect(c, 0, 56, w, 106, 16, fill=GREEN, outline="", tags="b2")
-        c.create_text(w / 2, 81, text="打开网页版", fill=INK,
+        c.create_text(w / 2, 81, text=self.web_btn_text, fill=INK,
                       font=(self.sans, 10, "bold"), tags="b2")
         c.tag_bind("b1", "<Button-1>", lambda e: self._open_form())
         c.tag_bind("b2", "<Button-1>", lambda e: self._open_web())
+
+    # ---------- 按钮闪现反馈(状态行小字已删) ----------
+
+    def _flash_add_btn(self, text, ms=2500):
+        self.add_btn_text = text
+        self._draw_add_btn()
+        if self.add_flash_job:
+            self.root.after_cancel(self.add_flash_job)
+        self.add_flash_job = self.root.after(ms, self._reset_add_btn)
+
+    def _reset_add_btn(self):
+        self.add_flash_job = None
+        self.add_btn_text = "+ 存一条"
+        self._draw_add_btn()
+
+    def _flash_web_btn(self, text, ms=3000):
+        self.web_btn_text = text
+        self._draw_add_btn()
+        if self.web_flash_job:
+            self.root.after_cancel(self.web_flash_job)
+        self.web_flash_job = self.root.after(ms, self._reset_web_btn)
+
+    def _reset_web_btn(self):
+        self.web_flash_job = None
+        self.web_btn_text = "打开网页版"
+        self._draw_add_btn()
+
+    def _flash_save_btn(self, text, ms=2500):
+        self.save_btn.configure(text=text)
+        if self.save_flash_job:
+            self.root.after_cancel(self.save_flash_job)
+        self.save_flash_job = self.root.after(ms, self._reset_save_btn)
+
+    def _reset_save_btn(self):
+        self.save_flash_job = None
+        if not self.busy:
+            self.save_btn.configure(text="存入")
 
     # ---------- 右上角图标 ----------
 
@@ -562,7 +599,6 @@ class EdgeApp:
     def _clear(self):
         self._set_text_placeholder()
         self._set_reason_placeholder()
-        self.status.configure(text="")
 
     # ---------- 存入流程 ----------
 
@@ -571,17 +607,15 @@ class EdgeApp:
             return
         text = "" if self.text_ph else self.text_area.get("1.0", "end").strip()
         if not text:
-            self.status.configure(text="先把要存的内容粘进来")
+            self._flash_save_btn("先粘贴内容")
             self.text_area.focus_set()
             return
         if not self.api_key:
-            self.status.configure(text="没有 DeepSeek API key:设置环境变量 "
-                                       "DEEPSEEK_API_KEY 或在 config.env 里写一行")
+            self._flash_save_btn("无 API key")
             return
         reason = "" if self.reason_ph else self.reason_entry.get().strip()
         self.busy = True
         self.save_btn.configure(state="disabled", text="生成中…")
-        self.status.configure(text="正在生成摘要与标签(约几秒)…")
         threading.Thread(target=self._summarize_worker,
                          args=(text, reason), daemon=True).start()
 
@@ -602,15 +636,13 @@ class EdgeApp:
                 elif kind == "err":
                     self.busy = False
                     self.save_btn.configure(state="normal", text="存入")
-                    self.status.configure(text="调用失败:%s(内容还在,可重试)"
-                                               % rest[0])
+                    self._flash_save_btn("调用失败,可重试")
                 elif kind == "web_ok":
                     self.web_opening = False
-                    self.status.configure(text="已在浏览器打开拾遗网页版")
                     self._collapse()
                 else:  # web_err
                     self.web_opening = False
-                    self.status.configure(text=rest[0])
+                    self._flash_web_btn("网页版启动失败")
         except queue.Empty:
             pass
         except Exception:
@@ -639,8 +671,7 @@ class EdgeApp:
         self.save_btn.configure(state="normal", text="存入")
         self._clear()
         self._close_form()
-        self.status.configure(text="已存 ✓ notes/%s(理由:%s)"
-                                   % (path.name, meta["理由"]))
+        self._flash_add_btn("已存 ✓")
 
     # ---------- 网页版 ----------
 
@@ -648,7 +679,7 @@ class EdgeApp:
         if self.web_opening:
             return
         self.web_opening = True
-        self.status.configure(text="正在打开网页版…")
+        self._flash_web_btn("打开中…")
         threading.Thread(target=self._open_web_worker, daemon=True).start()
 
     def _open_web_worker(self):
@@ -701,7 +732,8 @@ class EdgeApp:
     def _quit(self):
         self.quitting = True
         for job in (self.poll_job, self.queue_job, self.collapse_job,
-                    self.anim_job):
+                    self.anim_job, self.add_flash_job, self.web_flash_job,
+                    self.save_flash_job):
             if job:
                 try:
                     self.root.after_cancel(job)

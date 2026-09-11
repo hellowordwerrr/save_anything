@@ -42,6 +42,12 @@
     padding: 14px 36px; font-size: 15px; font-weight: 600; cursor: pointer;
   }
   .search button:hover { filter: brightness(.96); }
+  .search .back {
+    border: 1.5px solid var(--ink); border-radius: 999px;
+    background: transparent; padding: 14px 28px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .search .back:hover { background: rgba(0, 0, 0, .06); }
 
   /* ---- 笔记方块:大色块拼接,扁平无阴影 ---- */
   .grid {
@@ -129,6 +135,7 @@
   <div class="search">
     <input id="q" placeholder="搜摘要 / 标签 / 理由……" autofocus>
     <button id="searchBtn">搜</button>
+    <button id="backBtn" class="back" style="display:none">← 返回全部</button>
   </div>
 </header>
 
@@ -179,6 +186,7 @@ function tags(text) {
 function kv(field, v) { return '<div class="kv"><b>' + field + '</b><span>' + esc(v || '(无)') + '</span></div>'; }
 
 async function loadNotes(q) {
+  $('backBtn').style.display = q ? 'inline-block' : 'none';   // 搜索结果页亮出「返回全部」
   const res = await fetch('/api/notes' + (q ? '?q=' + encodeURIComponent(q) : ''));
   const data = await res.json();
   if (!q) $('total').textContent = data.notes.length;
@@ -249,6 +257,7 @@ async function submitReview() {
 function openReview() { $('reviewAnswer').value = ''; show($('reviewModal')); loadReview(); }
 
 $('searchBtn').onclick = () => loadNotes($('q').value.trim());
+$('backBtn').onclick = () => { $('q').value = ''; loadNotes(''); };
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadNotes($('q').value.trim()); });
 $('q').addEventListener('input', e => { if (!e.target.value.trim()) loadNotes(''); });
 $('reviewBtn').onclick = openReview;
