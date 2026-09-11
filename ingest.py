@@ -92,18 +92,22 @@ def main():
 
     ok = 0
     failed = 0
-    for src in files:
-        try:
-            if process_file(src, api_key):
-                ok += 1
-            else:
+    try:
+        for src in files:
+            try:
+                if process_file(src, api_key):
+                    ok += 1
+                else:
+                    failed += 1
+            except common.DeepseekError as e:
+                print("  处理失败:%s,留在 inbox" % e)
                 failed += 1
-        except common.DeepseekError as e:
-            print("  处理失败:%s,留在 inbox" % e)
-            failed += 1
-        except (OSError, ValueError) as e:
-            print("  处理失败:%s,留在 inbox" % e)
-            failed += 1
+            except (OSError, ValueError) as e:
+                print("  处理失败:%s,留在 inbox" % e)
+                failed += 1
+    except KeyboardInterrupt:
+        print("\n已中断:成功 %d 个,其余留在 inbox,重跑即可" % ok)
+        return
     print("\n处理完成:成功 %d 个,失败 %d 个(失败的留在 inbox,重跑即可)" % (ok, failed))
 
 
