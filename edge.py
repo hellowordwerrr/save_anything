@@ -62,7 +62,7 @@ WEB_PORT = 8000        # web.py 默认端口
 
 STRIP_W = 8            # 收起时露出宽度
 PANEL_W = 280          # 小面板:不遮挡屏幕
-COMPACT_H = 220        # 平时:标题 + 两个按钮 + 状态
+COMPACT_H = 220        # 收起高度下限:高 DPI 下按内容自适应上调(见 __init__)
 FULL_H = 400           # 展开表单后
 MARGIN = 30            # 展开态收起判定的缓冲边距
 COLLAPSE_MS = 1000     # 移出后多久收起(用户要求 1 秒)
@@ -177,6 +177,7 @@ class EdgeApp:
         self.hover_slot = -1       # 当前悬停的图标槽位(-1=无)
         self.icon_colors = [INK, INK, INK]   # 各图标当前颜色(含过渡中)
         self.icon_fades = {}       # slot → after id(颜色过渡任务)
+        self.compact_h = COMPACT_H   # 收起态高度:建完面板后按内容自适应
         self.panel_h = COMPACT_H
         self.region = None       # 圆角区域句柄(SetWindowRgn,重设后删旧)
         self.queue = queue.Queue()
@@ -194,9 +195,6 @@ class EdgeApp:
         self.root.withdraw()       # 无任务栏图标
         self.screen_w = self.root.winfo_screenwidth()
         self.screen_h = self.root.winfo_screenheight()
-        # 顶边固定:表单向下展开;并保证完整表单不超出屏幕
-        self.y0 = min((self.screen_h - COMPACT_H) // 2,
-                      self.screen_h - FULL_H - 30)
 
         fams = set(tkfont.families())
         self.serif = next((f for f in SERIF_CANDIDATES if f in fams),
@@ -213,6 +211,15 @@ class EdgeApp:
 
         self._build_window()
         self._build_panel()
+        # 收起高度按内容自适应:高 DPI 下字体等比放大,写死 COMPACT_H
+        # 会把自启行裁出窗口(本机 200% 缩放实测内容高 229 > 220);
+        # 低 DPI 机器内容更矮,仍落回 COMPACT_H。
+        self.win.update_idletasks()
+        self.compact_h = max(COMPACT_H, self.panel.winfo_reqheight() + 6)
+        self.panel_h = self.compact_h
+        # 顶边固定:表单向下展开;并保证完整表单不超出屏幕
+        self.y0 = min((self.screen_h - self.compact_h) // 2,
+                      self.screen_h - FULL_H - 30)
         self._apply_x(self._strip_x())
         self.poll_job = self.root.after(POLL_MS, self._poll)
         self.queue_job = self.root.after(150, self._poll_queue)
@@ -388,12 +395,14 @@ class EdgeApp:
         self.add_canvas.pack(fill="x")
         self.add_canvas.bind("<Configure>", lambda e: self._draw_add_btn())
 
-        # 底部:开机自启开关(仅打包成 exe 时显示;写 HKCU Run 键,
-        # 开发模式不写注册表)
+        # 开机自启开关(仅打包成 exe 时显示;写 HKCU Run 键,开发模式不写
+        # 注册表)。不能用 side="bottom":panel 框架高 FULL_H(400),收起时
+        # 窗口只露出 220,排在框架底部会落在可见区之外——跟在 body 后面
+        # 按 top 流排即可,表单展开时窗口变高、这行自然沉到内容下方。
         self.auto_btn = None
         if common.IS_FROZEN:
             self.auto_row = tk.Frame(self.panel, bg=CREAM)
-            self.auto_row.pack(side="bottom", fill="x", padx=20, pady=(0, 10))
+            self.auto_row.pack(fill="x", padx=20, pady=(4, 0))
             tk.Label(self.auto_row, text="开机自启", bg=CREAM, fg=GREY,
                      font=(self.sans, 9)).pack(side="left")
             self.auto_btn = tk.Button(self.auto_row, text=self._autostart_text(),
@@ -607,7 +616,7 @@ class EdgeApp:
         self.form_open = False
         self.form.pack_forget()
         self.add_canvas.pack(fill="x")
-        self.panel_h = COMPACT_H
+        self.panel_h = self.compact_h
         self._apply_x(self.win.winfo_x())
         self._apply_region()   # 尺寸变了,圆角区域重设一次
 
