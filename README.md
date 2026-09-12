@@ -21,9 +21,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-D97757?style=flat&logo=claude&logoColor=white" alt="Claude Code" />
 </p>
-
-<!-- BEAUTIFIED -->
-
 一个个人向的 AI 知识收件箱:把想存的内容丢进 `inbox/`,DeepSeek 帮你提炼「是什么」(≤30 字摘要 + 2-4 个标签),你亲手写下「为什么存它」;想找的时候一句关键词搜回来;定期回顾,系统把最久没看过的笔记递到你面前,问一句「现在还有用吗?」,回答记回笔记。
 
 <p align="center"><em>网页版界面</em></p>
@@ -36,11 +33,15 @@
   </tr>
 </table>
 
-![桌面悬浮窗](docs/img/edge.jpg)
+<p align="center"><em>桌面悬浮窗</em></p>
+
+<p align="center">
+  <img src="docs/img/edge.jpg" width="300" alt="桌面悬浮窗">
+</p>
 
 ## 特性
 
-- **零第三方依赖** — Python 3.9+ 纯标准库直调 DeepSeek API,无需安装任何包
+- **零第三方依赖** — 运行时纯标准库直调 DeepSeek API;可打包成单个 `拾遗.exe`(PyInstaller 仅构建期工具)
 - **AI 摘要与标签** — ≤30 字摘要 + 2-4 个标签,输出三级兜底、重试细分
 - **理由即记忆** — 每条笔记记录「为什么存它」,检索可命中理由
 - **杂志风网页与回收站** — 浏览 / 搜索 / 回顾一站式,删除进回收站保留 30 天可恢复,原生 HTML/CSS/JS 无构建
@@ -82,6 +83,17 @@ python resurface.py            # 推出最久没看过的笔记,问「现在还�
 python web.py                  # 浏览器打开 http://127.0.0.1:8000(浏览/搜索/回顾/回收站)
 python edge.py [--edge left]   # 贴屏幕右缘的粉色细条(仅 Windows)
 ```
+
+## 打包成 .exe(Windows)
+
+把悬浮窗 + 网页版装进一个绿色软件,双击即用、无需 Python:
+
+```bash
+packaging/build.bat      # 装 PyInstaller(仅构建期)+ 构建
+#   产物:packaging/dist/拾遗.exe
+```
+
+把 `拾遗.exe` 拷到任意目录,在其旁放一份 `config.env`(内容同快速开始);双击启动:悬浮窗常驻屏幕右缘,网页服务内置其中(悬浮窗里点「打开网页版」即可),数据(inbox / notes / archive / trash)自动建在 exe 旁边。悬浮窗底部有「开机自启」开关,再点一次关闭。绿色版:整个文件夹可随意搬走或删除。
 
 ## 配置
 
@@ -126,21 +138,23 @@ flowchart LR
 | [ingest.py](ingest.py) | 入库:DeepSeek 摘要+标签 → 交互式理由 → 写 notes/ → 原文件移 archive/ | 115 |
 | [search.py](search.py) | 检索:关键词 AND、大小写不敏感、保存时间倒序 | 36 |
 | [resurface.py](resurface.py) | 回顾:推出最久没看过的笔记,回答记回正文 | 51 |
-| [web.py](web.py) | 网页版后端:浏览 / 搜索 / 回顾 / 回收站 API,只监听 127.0.0.1 | 169 |
-| [web/index.html](web/index.html) | 网页版前端:杂志风单页,原生 HTML/CSS/JS | 370 |
-| [edge.py](edge.py) | 桌面悬浮窗:悬停展开、随手存、一键拉起网页版(Windows/tkinter) | 760 |
-| [common.py](common.py) | 公共库:API 调用与重试、笔记读写、检索与回顾规则 | 453 |
-| 合计 | 6 个 Python 模块 + 1 个页面 | 1954 |
+| [web.py](web.py) | 网页版后端:浏览 / 搜索 / 回顾 / 回收站 API,只监听 127.0.0.1 | 182 |
+| [web/index.html](web/index.html) | 网页版前端:杂志风单页,原生 HTML/CSS/JS | 418 |
+| [edge.py](edge.py) | 桌面悬浮窗:悬停展开、随手存、一键拉起网页版(Windows/tkinter) | 829 |
+| [app.py](app.py) | 打包入口:单进程跑网页服务 + 悬浮窗,`--serve-only` 冷拉起 | 30 |
+| [common.py](common.py) | 公共库:API 调用与重试、笔记读写、检索与回顾规则 | 463 |
+| 合计 | 7 个 Python 模块 + 1 个页面 | 2124 |
 
 ```mermaid
-pie showData title 各模块代码行数(共 1954 行)
-    "edge.py · 悬浮窗" : 760
-    "common.py · 公共库" : 453
-    "index.html · 网页前端" : 370
-    "web.py · 网页后端" : 169
+pie showData title 各模块代码行数(共 2124 行)
+    "edge.py · 悬浮窗" : 829
+    "common.py · 公共库" : 463
+    "index.html · 网页前端" : 418
+    "web.py · 网页后端" : 182
     "ingest.py · 入库" : 115
     "resurface.py · 回顾" : 51
     "search.py · 检索" : 36
+    "app.py · 打包入口" : 30
 ```
 
 ## API
@@ -203,11 +217,13 @@ save_anything/
 ├── trash/         # 回收站:删除的笔记保留 30 天,到期自动永久清理
 ├── web/           # 网页版前端 index.html
 ├── docs/img/      # README 截图
+├── packaging/     # 打包成 exe:spec / 图标脚本 / 构建脚本
 ├── ingest.py      # 入库
 ├── search.py      # 检索
 ├── resurface.py   # 回顾
 ├── web.py         # 网页版后端
 ├── edge.py        # 桌面悬浮窗
+├── app.py         # 打包入口(单进程:网页服务 + 悬浮窗)
 ├── common.py      # 公共库
 └── decisions.md   # 产品与技术决策记录
 ```
@@ -230,6 +246,9 @@ save_anything/
 - 发给 API 只取前 6000 字(笔记正文仍存全文),摘要质量取决于模型
 - 悬浮窗仅支持 Windows 主屏
 - 回收站清理在 web 启动或打开回收站时触发,无后台定时任务
+- 打包版为绿色版:数据在 exe 旁,勿放 Program Files 等只读目录
+- 端口 8000 固定;被占用时悬浮窗仍可用,「打开网页版」可能连到占用方服务
+- exe 未做代码签名,部分杀毒软件可能对未签名单文件 exe 告警
 
 ## 编码注意事项(Windows)
 
