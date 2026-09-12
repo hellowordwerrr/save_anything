@@ -26,9 +26,17 @@
 
 一个个人向的 AI 知识收件箱:把想存的内容丢进 `inbox/`,DeepSeek 帮你提炼「是什么」(≤30 字摘要 + 2-4 个标签),你亲手写下「为什么存它」;想找的时候一句关键词搜回来;定期回顾,系统把最久没看过的笔记递到你面前,问一句「现在还有用吗?」,回答记回笔记。
 
-![网页版界面](docs/img/web.png)
+<p align="center"><em>网页版界面</em></p>
 
-![桌面悬浮窗](docs/img/edge.png)
+<table>
+  <tr>
+    <td><img src="docs/img/web1.png" width="100%"></td>
+    <td><img src="docs/img/web2.png" width="100%"></td>
+    <td><img src="docs/img/web3.png" width="100%"></td>
+  </tr>
+</table>
+
+![桌面悬浮窗](docs/img/edge.jpg)
 
 ## 特性
 
