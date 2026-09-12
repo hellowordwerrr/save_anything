@@ -15,7 +15,11 @@ from pathlib import Path
 
 # ---- 目录与常量 ----
 
-BASE_DIR = Path(__file__).resolve().parent
+IS_FROZEN = getattr(sys, "frozen", False)   # PyInstaller 打包运行时为 True
+# 冻结后 __file__ 指向临时解包目录,数据根改指 exe 所在目录(绿色版:
+# notes/inbox/archive/trash/config.env 全建在 exe 旁,整个文件夹可搬走)
+BASE_DIR = (Path(sys.executable).resolve().parent if IS_FROZEN
+            else Path(__file__).resolve().parent)
 INBOX_DIR = BASE_DIR / "inbox"
 NOTES_DIR = BASE_DIR / "notes"
 ARCHIVE_DIR = BASE_DIR / "archive"
@@ -57,6 +61,12 @@ def setup_console():
             stream.reconfigure(encoding="utf-8", errors="replace")
         except Exception:
             pass  # 极端环境下降级,不崩
+
+
+def safe_print(*args):
+    """print 安全版:--windowed 打包下 sys.stdout 为 None,静默跳过。"""
+    if sys.stdout is not None:
+        print(*args)
 
 
 # ---- 时间 ----
@@ -295,7 +305,7 @@ def list_notes():
         try:
             parsed = read_note(path)
         except (OSError, ValueError) as e:
-            print("警告:跳过无法读取的笔记 %s(%s)" % (path.name, e))
+            safe_print("警告:跳过无法读取的笔记 %s(%s)" % (path.name, e))
             continue
         parsed["path"] = path
         notes.append(parsed)

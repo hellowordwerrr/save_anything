@@ -137,32 +137,45 @@ class Handler(BaseHTTPRequestHandler):
         pass  # 个人工具,终端保持安静
 
 
+def serve(port=8000, quiet=False):
+    """起网页服务(阻塞):建目录、清回收站、读页面、serve_forever。
+
+    quiet=True 供打包后的单进程形态使用:无控制台、不打印;资源缺失或
+    端口被占时静默返回 False,而不是 sys.exit 整退。
+    """
+    common.ensure_dirs()
+    removed = common.purge_trash()
+    if removed:
+        common.safe_print("回收站清理:%d 条过期笔记已永久删除" % len(removed))
+
+    global PAGE
+    try:
+        PAGE = INDEX_FILE.read_bytes()
+    except OSError as e:
+        if quiet:
+            return False
+        sys.exit("找不到 %s,请确认文件存在(%s)" % (INDEX_FILE, e))
+
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    except OSError as e:
+        if quiet:
+            return False
+        sys.exit("端口 %d 起不来:%s" % (port, e))
+    common.safe_print("拾遗已启动: http://127.0.0.1:%d  (Ctrl+C 退出)" % port)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        common.safe_print("\n已退出")
+    return True
+
+
 def main():
     common.setup_console()
     parser = argparse.ArgumentParser(description="拾遗前端(浏览+搜索+回顾+回收站)")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
-
-    common.ensure_dirs()
-    removed = common.purge_trash()
-    if removed:
-        print("回收站清理:%d 条过期笔记已永久删除" % len(removed))
-
-    global PAGE
-    try:
-        PAGE = INDEX_FILE.read_bytes()
-    except OSError:
-        sys.exit("找不到 %s,请确认文件存在" % INDEX_FILE)
-
-    try:
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    except OSError as e:
-        sys.exit("端口 %d 起不来:%s" % (args.port, e))
-    print("拾遗已启动: http://127.0.0.1:%d  (Ctrl+C 退出)" % args.port)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n已退出")
+    serve(args.port)
 
 
 if __name__ == "__main__":

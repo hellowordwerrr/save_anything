@@ -43,6 +43,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 import traceback
 import webbrowser
+import winreg
 
 import common
 
@@ -123,6 +124,34 @@ def web_alive():
             return True
     except OSError:
         return False
+
+
+# ---- 开机自启(winreg 写 HKCU Run,仅打包版显示开关)----
+
+AUTOSTART_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+AUTOSTART_NAME = "拾遗"
+
+
+def autostart_enabled():
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTOSTART_KEY) as k:
+            value, _ = winreg.QueryValueEx(k, AUTOSTART_NAME)
+        return bool(value)
+    except OSError:
+        return False
+
+
+def set_autostart(enabled):
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTOSTART_KEY, 0,
+                        winreg.KEY_SET_VALUE) as k:
+        if enabled:
+            winreg.SetValueEx(k, AUTOSTART_NAME, 0, winreg.REG_SZ,
+                              '"%s"' % sys.executable)
+        else:
+            try:
+                winreg.DeleteValue(k, AUTOSTART_NAME)
+            except FileNotFoundError:
+                pass
 
 
 def blend_hex(c1, c2, t):
@@ -284,7 +313,8 @@ class EdgeApp:
 
     def _log_error(self):
         """回调异常不掐断主循环:stderr + 项目里 edge_errors.log 各留一份。"""
-        traceback.print_exc(file=sys.stderr)
+        if sys.stderr is not None:   # --windowed 打包下 stderr 为 None
+            traceback.print_exc(file=sys.stderr)
         try:
             with open(os.path.join(common.BASE_DIR, "edge_errors.log"), "a",
                       encoding="utf-8") as f:
@@ -357,6 +387,22 @@ class EdgeApp:
                                     height=106, cursor="hand2")
         self.add_canvas.pack(fill="x")
         self.add_canvas.bind("<Configure>", lambda e: self._draw_add_btn())
+
+        # 底部:开机自启开关(仅打包成 exe 时显示;写 HKCU Run 键,
+        # 开发模式不写注册表)
+        self.auto_btn = None
+        if common.IS_FROZEN:
+            self.auto_row = tk.Frame(self.panel, bg=CREAM)
+            self.auto_row.pack(side="bottom", fill="x", padx=20, pady=(0, 10))
+            tk.Label(self.auto_row, text="开机自启", bg=CREAM, fg=GREY,
+                     font=(self.sans, 9)).pack(side="left")
+            self.auto_btn = tk.Button(self.auto_row, text=self._autostart_text(),
+                                      command=self._toggle_autostart,
+                                      font=(self.sans, 9, "bold"), bg=CREAM,
+                                      fg=INK, relief="flat", bd=0,
+                                      highlightthickness=0,
+                                      activebackground=CREAM, cursor="hand2")
+            self.auto_btn.pack(side="right")
 
         self.form = tk.Frame(self.body, bg=CREAM)
         self.text_area = tk.Text(self.form, bg=PANEL_BG, fg=INK,
@@ -683,11 +729,15 @@ class EdgeApp:
         threading.Thread(target=self._open_web_worker, daemon=True).start()
 
     def _open_web_worker(self):
-        """网页版没在跑就无窗口拉起 web.py,起好了开浏览器。"""
+        """网页版没在跑就无窗口拉起(打包后拉起 exe 自身的 --serve-only),起好了开浏览器。"""
         try:
             if not web_alive():
+                if common.IS_FROZEN:
+                    cmd = [sys.executable, "--serve-only"]
+                else:
+                    cmd = [sys.executable, "-u", str(common.BASE_DIR / "web.py")]
                 subprocess.Popen(
-                    [sys.executable, "-u", str(common.BASE_DIR / "web.py")],
+                    cmd,
                     cwd=str(common.BASE_DIR),
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 for _ in range(25):   # 最多等约 5 秒
@@ -704,6 +754,17 @@ class EdgeApp:
             self.queue.put(("web_err", "启动网页版失败:%s" % e))
 
     # ---------- 杂项 ----------
+
+    def _autostart_text(self):
+        return "开" if autostart_enabled() else "关"
+
+    def _toggle_autostart(self):
+        try:
+            set_autostart(not autostart_enabled())
+        except OSError:
+            self.auto_btn.configure(text="设置失败")
+            return
+        self.auto_btn.configure(text=self._autostart_text())
 
     def _update_pin_icon(self):
         """图钉状态:锁定=圆圈实心。颜色跟随当前值(含悬停过渡中)。"""
@@ -745,15 +806,23 @@ class EdgeApp:
         self.root.mainloop()
 
 
+def run_app(edge="right"):
+    """打包入口复用:建窗跑主循环,无参数解析、无控制台输出。"""
+    set_dpi_aware()
+    declare_gdi_types()
+    EdgeApp(edge=edge).run()
+
+
 def main():
     set_dpi_aware()
     declare_gdi_types()
     parser = argparse.ArgumentParser(description="拾遗桌面悬浮窗(随手存入)")
     parser.add_argument("--edge", choices=("right", "left"), default="right")
     args = parser.parse_args()
-    print("拾遗悬浮窗已启动(%s缘)。悬停细条展开:「+ 存一条」随手存,"
-          "「打开网页版」进网页;「退」退出。" % ("右" if args.edge == "right" else "左"))
-    EdgeApp(edge=args.edge).run()
+    common.safe_print("拾遗悬浮窗已启动(%s缘)。悬停细条展开:「+ 存一条」随手存,"
+                      "「打开网页版」进网页;「退」退出。"
+                      % ("右" if args.edge == "right" else "左"))
+    run_app(args.edge)
 
 
 if __name__ == "__main__":

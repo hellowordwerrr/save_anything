@@ -17,6 +17,10 @@ edge_errors.log
 edge_trace.log
 web_run.log
 
+# PyInstaller 构建产物(构建期工具,运行时零依赖)
+build/
+dist/
+
 # notes/ 故意不忽略:笔记是产出物,建议纳入版本管理
 # 若不想同步笔记,可自行把 notes/ 加入此文件
 
