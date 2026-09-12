@@ -103,12 +103,12 @@ flowchart LR
     classDef input fill:#3B82F6,stroke:#2563EB,color:#fff,stroke-width:2px
     classDef process fill:#10B981,stroke:#059669,color:#fff,stroke-width:2px
     classDef store fill:#8B5CF6,stroke:#7C3AED,color:#fff,stroke-width:2px
-    classDef end fill:#F43F5E,stroke:#E11D48,color:#fff,stroke-width:2px
+    classDef purge fill:#F43F5E,stroke:#E11D48,color:#fff,stroke-width:2px
 
     class A,J input
     class B,E,F,G process
     class C,D,H store
-    class I end
+    class I purge
 ```
 
 ## 模块与代码量
