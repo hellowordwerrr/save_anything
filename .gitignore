@@ -8,6 +8,9 @@ __pycache__/
 inbox/
 archive/
 
+# 回收站:删除的笔记是用户数据,不进仓库
+trash/
+
 # 运行时日志(崩溃日志 edge_errors.log 值得留,但由用户决定)
 edge_run.log
 edge_errors.log

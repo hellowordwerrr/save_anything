@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>拾遗</title>
+<!-- 站点图标:品牌色 2×2 色块,内联 SVG 免请求(奶油底 + 芥末黄/荧光绿/柔粉/蜜桃) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23F6F1E7'/%3E%3Crect x='5' y='5' width='10' height='10' rx='3' fill='%23F0C94F'/%3E%3Crect x='17' y='5' width='10' height='10' rx='3' fill='%23C9E86C'/%3E%3Crect x='5' y='17' width='10' height='10' rx='3' fill='%23F3C7C1'/%3E%3Crect x='17' y='17' width='10' height='10' rx='3' fill='%23F7D9B3'/%3E%3C/svg%3E">
 <style>
   :root {
     --cream: #F6F1E7;    /* 暖调奶油米色底 */
@@ -55,6 +57,7 @@
     gap: 18px; padding: 44px 40px 140px; max-width: 1400px; margin: 0 auto;
   }
   .block {
+    position: relative;
     border-radius: 22px; padding: 24px 24px 20px; cursor: pointer;
     min-height: 190px; display: flex; flex-direction: column;
     justify-content: space-between; transition: transform .12s ease;
@@ -64,11 +67,30 @@
   .b1 { background: var(--green); }
   .b2 { background: var(--pink); }
   .b3 { background: var(--peach); }
-  .block .t { font: 12px var(--sans); letter-spacing: .06em; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .block .t { font: 12px var(--sans); letter-spacing: .06em; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 22px; }
   .block .s { font-family: var(--serif); font-size: 23px; font-weight: 600; line-height: 1.55; margin-top: 12px; }
   .block .m { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { border: 1px solid var(--ink); border-radius: 999px; padding: 2px 10px; font: 11px var(--sans); }
   .block .d { font: 11px var(--sans); opacity: .55; margin-top: 12px; letter-spacing: .02em; }
+
+  /* ---- 卡片删除按钮 ---- */
+  .block .del {
+    position: absolute; top: 14px; right: 16px;
+    border: none; background: none; cursor: pointer;
+    font: 16px var(--sans); line-height: 1; opacity: .45;
+  }
+  .block .del:hover { opacity: 1; }
+
+  /* ---- 回收站列表行 ---- */
+  .trow {
+    grid-column: 1 / -1; display: flex; align-items: center;
+    justify-content: space-between; gap: 16px;
+    background: var(--panel); border: 1.5px solid var(--ink);
+    border-radius: 18px; padding: 18px 24px;
+  }
+  .trow-title { font-family: var(--serif); font-size: 19px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trow-meta { font: 12px var(--sans); opacity: .55; margin-top: 6px; letter-spacing: .02em; }
+  .trow-actions { display: flex; gap: 10px; flex-shrink: 0; }
 
   /* ---- 浮层:杂志跨页式的留白面板 ---- */
   .mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 10; display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 4vh 20px 6vh; }
@@ -107,6 +129,20 @@
   .btn:hover { background: rgba(0, 0, 0, .05); }
   .btn.primary { background: var(--mustard); border: none; }
   .btn.primary:hover { filter: brightness(.96); }
+  .btn.green { background: var(--green); border: none; }
+  .btn.green:hover { background: var(--green); filter: brightness(.95); }
+  .actions .left { margin-right: auto; }
+  /* 详情浮层删除按钮:底色跟随该笔记方块的色块色 */
+  .del-note {
+    border-radius: 999px; padding: 12px 30px; font-size: 14px;
+    font-weight: 600; cursor: pointer; border: 1.5px solid var(--ink);
+    background: transparent;
+  }
+  .del-note.b0 { background: var(--mustard); }
+  .del-note.b1 { background: var(--green); }
+  .del-note.b2 { background: var(--pink); }
+  .del-note.b3 { background: var(--peach); }
+  .del-note:hover { filter: brightness(.96); }
 
   /* ---- 回顾入口:荧光浅绿大按钮 ---- */
   #reviewBtn {
@@ -135,6 +171,7 @@
   <div class="search">
     <input id="q" placeholder="搜摘要 / 标签 / 理由……" autofocus>
     <button id="searchBtn">搜索</button>
+    <button id="trashBtn" class="back">回收站</button>
     <button id="backBtn" class="back" style="display:none">← 返回全部</button>
   </div>
 </header>
@@ -151,6 +188,9 @@
     <h2 id="noteTitle"></h2>
     <div id="noteMeta"></div>
     <div class="body" id="noteBody"></div>
+    <div class="actions">
+      <button id="noteDel" class="del-note" onclick="delOpenNote()">删除</button>
+    </div>
   </div>
 </div>
 
@@ -162,6 +202,7 @@
     <div class="review-block" id="reviewNote"></div>
     <textarea id="reviewAnswer" placeholder="现在还有用吗?写一句,留空=无回应"></textarea>
     <div class="actions">
+      <button class="btn green left" onclick="delReviewNote()">删除</button>
       <button class="btn" onclick="hide($('reviewModal'))">先不看了</button>
       <button class="btn primary" onclick="submitReview()">记下,看下一条</button>
     </div>
@@ -170,6 +211,8 @@
 
 <script>
 let reviewPath = null;
+let notePath = null;               // 详情浮层当前笔记
+let view = 'notes';   // 'notes' | 'trash'
 const $ = id => document.getElementById(id);
 const PALETTE = ['b0', 'b1', 'b2', 'b3'];
 const paletteOf = s => PALETTE[[...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
@@ -186,6 +229,12 @@ function tags(text) {
 function kv(field, v) { return '<div class="kv"><b>' + field + '</b><span>' + esc(v || '(无)') + '</span></div>'; }
 
 async function loadNotes(q) {
+  view = 'notes';                                              // 恢复笔记视图 chrome
+  $('q').style.display = '';
+  $('searchBtn').style.display = '';
+  $('trashBtn').style.display = '';
+  $('reviewBtn').style.display = '';
+  $('backBtn').textContent = '← 返回全部';
   $('backBtn').style.display = q ? 'inline-block' : 'none';   // 搜索结果页亮出「返回全部」
   const res = await fetch('/api/notes' + (q ? '?q=' + encodeURIComponent(q) : ''));
   const data = await res.json();
@@ -199,6 +248,7 @@ async function loadNotes(q) {
     const m = n.meta || {};
     const last = m['上次回顾'] ? '上次回顾 ' + m['上次回顾'] : '从未回顾';
     return '<div class="block ' + paletteOf(n.path) + '" data-path="' + esc(n.path) + '" onclick="openNote(this.dataset.path)">' +
+      '<button class="del" title="删除" onclick="delNote(event, this)">✕</button>' +
       '<div class="t">' + esc(m['标题'] || n.path) + '</div>' +
       '<div class="s">' + esc(m['摘要'] || '(无摘要)') + '</div>' +
       '<div><div class="m">' + tags(m['标签']) + '</div>' +
@@ -207,10 +257,81 @@ async function loadNotes(q) {
   }).join('');
 }
 
+async function delNote(ev, btn) {
+  ev.stopPropagation();                       // 不触发整卡 openNote
+  const path = btn.closest('.block').dataset.path;
+  if (!confirm('删除这条笔记?30 天内可在回收站恢复')) return;
+  const res = await fetch('/api/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({path: path}),
+  });
+  if (res.status !== 200) { alert('删除失败'); return; }
+  loadNotes($('q').value.trim());
+}
+
+async function loadTrash() {
+  view = 'trash';                             // 回收站视图:藏搜索/回顾,亮「返回笔记」
+  $('q').style.display = 'none';
+  $('searchBtn').style.display = 'none';
+  $('trashBtn').style.display = 'none';
+  $('reviewBtn').style.display = 'none';
+  $('backBtn').textContent = '← 返回笔记';
+  $('backBtn').style.display = 'inline-block';
+  const res = await fetch('/api/trash');
+  const data = await res.json();
+  $('total').textContent = data.trash.length;
+  const grid = $('grid');
+  if (!data.trash.length) {
+    grid.innerHTML = '<div class="empty">回收站是空的</div>';
+    return;
+  }
+  grid.innerHTML = data.trash.map(t =>
+    '<div class="trow" data-name="' + esc(t.name) + '">' +
+      '<div>' +
+        '<div class="trow-title">' + esc(t.title) + '</div>' +
+        '<div class="trow-meta">删除于 ' + esc(t.deleted_at) +
+        ' · 剩余 <b>' + t.expires_in_days + '</b> 天</div>' +
+      '</div>' +
+      '<div class="trow-actions">' +
+        '<button class="btn" onclick="restoreOne(event, this)">恢复</button>' +
+        '<button class="btn" onclick="purgeOne(event, this)">彻底删除</button>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+}
+
+async function restoreOne(ev, btn) {
+  ev.stopPropagation();
+  const name = btn.closest('.trow').dataset.name;
+  const res = await fetch('/api/restore', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name}),
+  });
+  if (res.status !== 200) { alert('恢复失败'); return; }
+  loadTrash();
+}
+
+async function purgeOne(ev, btn) {
+  ev.stopPropagation();
+  const name = btn.closest('.trow').dataset.name;
+  if (!confirm('彻底删除后无法恢复,确定?')) return;
+  const res = await fetch('/api/purge', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name}),
+  });
+  if (res.status !== 200) { alert('删除失败'); return; }
+  loadTrash();
+}
+
 async function openNote(path) {
   const res = await fetch('/api/note?path=' + encodeURIComponent(path));
   if (res.status !== 200) return;
   const n = await res.json();
+  notePath = path;
+  $('noteDel').className = 'del-note ' + paletteOf(path);   // 删除按钮底色=这条笔记的色块色
   const m = n.meta || {};
   $('noteTitle').textContent = m['标题'] || path;
   $('noteMeta').innerHTML =
@@ -218,6 +339,18 @@ async function openNote(path) {
     kv('保存时间', m['保存时间']) + kv('上次回顾', m['上次回顾'] || '从未');
   $('noteBody').textContent = n.body || '';
   show($('noteModal'));
+}
+
+async function delOpenNote() {
+  if (!confirm('删除这条笔记?30 天内可在回收站恢复')) return;
+  const res = await fetch('/api/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({path: notePath}),
+  });
+  if (res.status !== 200) { alert('删除失败'); return; }
+  hide($('noteModal'));
+  loadNotes($('q').value.trim());
 }
 
 async function loadReview() {
@@ -254,9 +387,23 @@ async function submitReview() {
   loadNotes($('q').value.trim());        // 方块列表同步刷新
 }
 
+async function delReviewNote() {
+  if (!confirm('删除这条笔记?30 天内可在回收站恢复')) return;
+  const res = await fetch('/api/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({path: reviewPath}),
+  });
+  if (res.status !== 200) { alert('删除失败'); return; }
+  $('reviewAnswer').value = '';
+  await loadReview();                    // 删完继续看下一条
+  loadNotes($('q').value.trim());        // 方块列表同步刷新
+}
+
 function openReview() { $('reviewAnswer').value = ''; show($('reviewModal')); loadReview(); }
 
 $('searchBtn').onclick = () => loadNotes($('q').value.trim());
+$('trashBtn').onclick = () => loadTrash();
 $('backBtn').onclick = () => { $('q').value = ''; loadNotes(''); };
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadNotes($('q').value.trim()); });
 $('q').addEventListener('input', e => { if (!e.target.value.trim()) loadNotes(''); });

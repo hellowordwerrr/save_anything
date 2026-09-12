@@ -9,6 +9,10 @@
     GET  /api/note?path=...    单条全文(含正文),路径必须落在 notes/ 内
     GET  /api/review           下一条待回顾笔记(规则同 resurface.py)
     POST /api/review           {"path": ..., "answer": ...} 记回笔记
+    GET  /api/trash            回收站列表(先清理过期条目)
+    POST /api/delete           {"path": ...}  笔记移入回收站
+    POST /api/restore          {"name": ...}  从回收站恢复
+    POST /api/purge            {"name": ...}  彻底删除回收站条目
 """
 
 import argparse
@@ -78,27 +82,56 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     pick = common.pick_review_note(notes)
                     self._send_json({"note": self._note_dict(pick["path"], pick)})
+            elif path == "/api/trash":
+                common.purge_trash()
+                self._send_json({"trash": common.trash_list()})
             else:
                 self._send_json({"error": "not found"}, 404)
         except (OSError, ValueError) as e:
             self._send_json({"error": str(e)}, 500)
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/review":
+        path = urlparse(self.path).path
+        if path not in ("/api/review", "/api/delete", "/api/restore", "/api/purge"):
             self._send_json({"error": "not found"}, 404)
             return
         try:
             length = int(self.headers.get("Content-Length", 0))
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
-            p = self._note_path(str(payload.get("path", "")))
-            if p is None:
-                self._send_json({"error": "笔记不存在"}, 404)
-                return
-            answer = str(payload.get("answer", "")).strip() or "(无回应)"
-            updated = common.record_review(p, answer)
-            self._send_json({"note": self._note_dict(p, updated)})
+            if not isinstance(payload, dict):
+                payload = {}
         except (ValueError, TypeError, OSError) as e:
             self._send_json({"error": str(e)}, 400)
+            return
+        try:
+            if path == "/api/review":
+                p = self._note_path(str(payload.get("path", "")))
+                if p is None:
+                    self._send_json({"error": "笔记不存在"}, 404)
+                    return
+                answer = str(payload.get("answer", "")).strip() or "(无回应)"
+                updated = common.record_review(p, answer)
+                self._send_json({"note": self._note_dict(p, updated)})
+            elif path == "/api/delete":
+                p = self._note_path(str(payload.get("path", "")))
+                if p is None:
+                    self._send_json({"error": "笔记不存在"}, 404)
+                    return
+                common.move_to_trash(p)
+                self._send_json({"ok": True})
+            elif path == "/api/restore":
+                dest = common.restore_from_trash(str(payload.get("name", "")))
+                if dest is None:
+                    self._send_json({"error": "回收站里没有这条笔记"}, 404)
+                else:
+                    self._send_json({"ok": True, "path": dest})
+            else:  # /api/purge
+                if not common.remove_from_trash(str(payload.get("name", ""))):
+                    self._send_json({"error": "回收站里没有这条笔记"}, 404)
+                else:
+                    self._send_json({"ok": True})
+        except (OSError, ValueError) as e:
+            self._send_json({"error": str(e)}, 500)
 
     def log_message(self, fmt, *args):
         pass  # 个人工具,终端保持安静
@@ -106,9 +139,14 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     common.setup_console()
-    parser = argparse.ArgumentParser(description="拾遗前端(浏览+搜索+回顾)")
+    parser = argparse.ArgumentParser(description="拾遗前端(浏览+搜索+回顾+回收站)")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
+
+    common.ensure_dirs()
+    removed = common.purge_trash()
+    if removed:
+        print("回收站清理:%d 条过期笔记已永久删除" % len(removed))
 
     global PAGE
     try:

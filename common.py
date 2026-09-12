@@ -6,6 +6,7 @@
 import json
 import os
 import re
+import shutil
 import sys
 import time
 import urllib.error
@@ -18,6 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent
 INBOX_DIR = BASE_DIR / "inbox"
 NOTES_DIR = BASE_DIR / "notes"
 ARCHIVE_DIR = BASE_DIR / "archive"
+TRASH_DIR = BASE_DIR / "trash"
 CONFIG_FILE = BASE_DIR / "config.env"
 
 # DeepSeek API(Step 2 接入调用)
@@ -72,7 +74,7 @@ def file_ts():
 # ---- 目录与配置 ----
 
 def ensure_dirs():
-    for d in (INBOX_DIR, NOTES_DIR, ARCHIVE_DIR):
+    for d in (INBOX_DIR, NOTES_DIR, ARCHIVE_DIR, TRASH_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 
@@ -347,6 +349,98 @@ def record_review(path, answer, now=None):
     body = body.rstrip() + "\n- [%s] %s" % (now, answer)
     write_text_file(path, build_note(meta, body))
     return {"meta": meta, "body": body}
+
+
+# ---- 回收站(web 删除/恢复共用,规则只在此处定义)----
+
+TRASH_TS_RE = re.compile(r"^(\d{8}_\d{6})_.+\.md$")
+TRASH_KEEP_DAYS = 30  # 保留天数,到期自动永久删除
+
+
+def _valid_trash_name(name):
+    """回收站条目名必须是 <时间戳>_原名.md,且是 TRASH_DIR 直接子文件。"""
+    if not TRASH_TS_RE.match(name):
+        return None
+    p = (TRASH_DIR / name).resolve()
+    if p.parent != TRASH_DIR.resolve() or not p.is_file():
+        return None
+    return p
+
+
+def move_to_trash(note_path, now=None):
+    """把 notes/ 里的笔记移入回收站:文件名加时间戳前缀,返回回收站内文件名。"""
+    TRASH_DIR.mkdir(parents=True, exist_ok=True)
+    prefix = file_ts() if now is None else time.strftime("%Y%m%d_%H%M%S", now)
+    dest = unique_path(TRASH_DIR, "%s_%s" % (prefix, note_path.stem), ".md")
+    shutil.move(str(note_path), str(dest))
+    return dest.name
+
+
+def restore_from_trash(name):
+    """恢复回收站条目:剥掉时间戳前缀移回 notes/,重名自动加后缀。
+
+    成功返回如 "notes/x.md" 的相对路径;名字非法或文件不存在返回 None。
+    """
+    src = _valid_trash_name(name)
+    if src is None:
+        return None
+    original = name[16:]                    # 只剥最前面我们加的前缀
+    dest = unique_path(NOTES_DIR, original[:-3], ".md")
+    shutil.move(str(src), str(dest))
+    return dest.relative_to(BASE_DIR).as_posix()
+
+
+def remove_from_trash(name):
+    """彻底删除回收站里的单条。成功返回 True,非法/不存在返回 False。"""
+    p = _valid_trash_name(name)
+    if p is None:
+        return False
+    p.unlink()
+    return True
+
+
+def purge_trash(now=None, keep_days=TRASH_KEEP_DAYS):
+    """删除超过保留期的条目:前缀定长,字符串比大小即时间比大小。返回被删名列表。"""
+    now = now if now is not None else time.time()
+    cutoff = time.strftime("%Y%m%d_%H%M%S",
+                           time.localtime(now - keep_days * 86400))
+    removed = []
+    for p in TRASH_DIR.glob("*.md"):
+        m = TRASH_TS_RE.match(p.name)
+        if m and m.group(1) < cutoff:
+            p.unlink()
+            removed.append(p.name)
+    return removed
+
+
+def trash_list(now=None, keep_days=TRASH_KEEP_DAYS):
+    """回收站条目,新删在前:[{"name","title","deleted_at","expires_in_days"}]。
+
+    名字不合法的条目不显示也不自动删(非本程序写入),留给用户手动处理。
+    """
+    now_ts = now if now is not None else time.time()
+    items = []
+    for p in sorted(TRASH_DIR.glob("*.md"), reverse=True):
+        m = TRASH_TS_RE.match(p.name)
+        if not m:
+            continue
+        try:
+            meta = read_note(p)["meta"]
+        except (OSError, ValueError):
+            meta = {}
+        title = (meta.get("标题") or "").strip() or p.name[16:-3]
+        try:
+            deleted_ts = time.mktime(time.strptime(m.group(1), "%Y%m%d_%H%M%S"))
+            deleted_at = time.strftime("%Y-%m-%d %H:%M",
+                                       time.localtime(deleted_ts))
+            expires_in = keep_days - int((now_ts - deleted_ts) // 86400)
+        except (ValueError, OverflowError):
+            deleted_at = m.group(1)
+            expires_in = 0
+        items.append({"name": p.name, "title": title,
+                      "deleted_at": deleted_at,
+                      "expires_in_days": max(0, expires_in)})
+    return items
 
 
 # ---- 路径 ----
